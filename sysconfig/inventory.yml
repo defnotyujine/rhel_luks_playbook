@@ -1,0 +1,6 @@
+tang_servers:
+  hosts:
+    tang_server1:
+      ansible_host:
+    tang_server2:
+      ansible_host2:
