@@ -1,0 +1,129 @@
+---
+
+- name: Deploy and configure Tang servers
+  hosts: tang_servers
+  become: true
+
+  pre_tasks:
+    - name: Check ansible version is greater than 2.16.1
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported ansible-core version: {{ ansible_version.full }}.
+          This playbook requires ansible-core 2.16.1 or higher.
+      when: not (ansible_version.full is version('2.16.1', '>='))
+      tags: always
+
+    - name: Ensure the system is supported
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported OS: {{ ansible_distribution }}
+          {{ ansible_distribution_major_version }}.
+          This playbook supports RedHat family distributions only.
+      when: ansible_os_family != "RedHat"
+      tags: always
+
+    - name: Ensure policycoreutils-python-utils is present semanage
+      ansible.builtin.package:
+        name: polcycoreutils-python-utils
+        state: present
+      tags: always
+
+  tasks:
+    - name: Import RHEL NBDE Server system role
+      ansible.builtin.include_role:
+        name: redhat.rhel_system_roles.nbde_server
+
+    - name: Label the Tang port for SELinux
+      community.general.seport:
+        ports: "{{ tamg_port }}"
+        proto: tcp
+        setype: tangd_port_t
+        state: present
+      when: ansible_selinux.status == "enabled"
+
+    - name: Create systemd drop-in directory for tangd.socket
+      ansible.builtin.file:
+        path: /etc/systemd/system/tangd.socket.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Override the Tang listen port
+      ansible.builtin.copy:
+        dest: /etc/sytemd/system/tangd.socket.d/override.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Socket]
+          ListenStream=
+          ListenStream={{ tang_port }}
+      notify:
+        - Reload systemd
+        - Restart tangd.socket
+
+    - name: Open the Tang port in the firewall
+      ansible.builtin.include_role:
+        name: redhat.rhel_system_roles.firewall
+      vars:
+        firewall:
+          port:
+            - {{ tang_port }}
+          permanent: true
+          immediate: true
+          state: enabled
+
+    - name: Ensure tangd.socket is enabled and running
+      ansible.builtin.systemd:
+        name: tangd.socket
+        enabled: true
+        state: started
+
+    - name: Check for existing tang keys
+      ansible.builtin.find:
+        paths: "{{ tang_keydir }}"
+        patterns: "*.jwk"
+        hidden: true
+      register: tang_keys
+
+
+    - name: Generate Tang keys if none exist
+      ansible.builtin.command:
+        cmd: /usr/libexec/tangd-keygen {{ tang_keydir }}
+      when: tang_keys.matched == 0
+
+    - name: Verify Tang responds with an advertisement
+      ansible.builtin.uri:
+        url: "http://{{ ansible_default_ipv4.address }}:{{ tang_port }}/adv"
+        return_content: true
+      register: tang_adv
+      retries: 3
+      delay: 2
+      until: tang_adv.stats == 200
+
+    - name: Show the Tang key thumprints
+      ansible.builtin.command:
+        cmd: tang-show-keys {{ tang_port }}
+      register: tang_thumbprints
+      changed_when: false
+
+    - name: Report thumprints
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} advertises: {{ tang_thumbprints.stdout_lines }}"
+
+  post_tasks:
+    - name: End of Ansible Deployment
+      ansible.builtin.debug:
+        msg: "Ansible Deployment Finished"
+      tags: always
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart tangd.socket
+      ansible.builtin.systemd:
+        name: tangd.socket
+        state: restarted
