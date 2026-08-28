@@ -1,4 +1,3 @@
 ---
 
 tang_port: 7500
-tang_keydir: "/var/db/tang"

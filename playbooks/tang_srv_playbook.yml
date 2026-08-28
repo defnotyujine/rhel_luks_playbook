@@ -22,76 +22,15 @@
       when: ansible_os_family != "RedHat"
       tags: always
 
-    - name: Ensure policycoreutils-python-utils is present semanage
-      ansible.builtin.package:
-        name: polcycoreutils-python-utils
-        state: present
-      tags: always
-
   tasks:
-    - name: Import RHEL NBDE Server system role
+    - name: Deploy Tang via the RHEL NBDE Server system role
       ansible.builtin.include_role:
         name: redhat.rhel_system_roles.nbde_server
-
-    - name: Label the Tang port for SELinux
-      community.general.seport:
-        ports: "{{ tamg_port }}"
-        proto: tcp
-        setype: tangd_port_t
-        state: present
-      when: ansible_selinux.status == "enabled"
-
-    - name: Create systemd drop-in directory for tangd.socket
-      ansible.builtin.file:
-        path: /etc/systemd/system/tangd.socket.d
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Override the Tang listen port
-      ansible.builtin.copy:
-        dest: /etc/sytemd/system/tangd.socket.d/override.conf
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          [Socket]
-          ListenStream=
-          ListenStream={{ tang_port }}
-      notify:
-        - Reload systemd
-        - Restart tangd.socket
-
-    - name: Open the Tang port in the firewall
-      ansible.builtin.include_role:
-        name: redhat.rhel_system_roles.firewall
       vars:
-        firewall:
-          port:
-            - {{ tang_port }}
-          permanent: true
-          immediate: true
-          state: enabled
-
-    - name: Ensure tangd.socket is enabled and running
-      ansible.builtin.systemd:
-        name: tangd.socket
-        enabled: true
-        state: started
-
-    - name: Check for existing tang keys
-      ansible.builtin.find:
-        paths: "{{ tang_keydir }}"
-        patterns: "*.jwk"
-        hidden: true
-      register: tang_keys
-
-
-    - name: Generate Tang keys if none exist
-      ansible.builtin.command:
-        cmd: /usr/libexec/tangd-keygen {{ tang_keydir }}
-      when: tang_keys.matched == 0
+        nbde_server_provider: tang
+        nbde_server_port: "{{ tang_port }}"
+        nbde_server_manage_firewall: true
+        nbde_server_manage_selinux: true
 
     - name: Verify Tang responds with an advertisement
       ansible.builtin.uri:
@@ -100,15 +39,15 @@
       register: tang_adv
       retries: 3
       delay: 2
-      until: tang_adv.stats == 200
+      until: tang_adv.status == 200
 
-    - name: Show the Tang key thumprints
+    - name: Show the Tang key thumbprints
       ansible.builtin.command:
         cmd: tang-show-keys {{ tang_port }}
       register: tang_thumbprints
       changed_when: false
 
-    - name: Report thumprints
+    - name: Report thumbprints
       ansible.builtin.debug:
         msg: "{{ inventory_hostname }} advertises: {{ tang_thumbprints.stdout_lines }}"
 
@@ -117,13 +56,3 @@
       ansible.builtin.debug:
         msg: "Ansible Deployment Finished"
       tags: always
-
-  handlers:
-    - name: Reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: true
-
-    - name: Restart tangd.socket
-      ansible.builtin.systemd:
-        name: tangd.socket
-        state: restarted
