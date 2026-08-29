@@ -1,10 +1,6 @@
 ---
 
-roles:
-  - name: linux-system-roles.nbde_server
-  - name: linux-system-roles.nbde_client
-  - name: linux-system-roles.storage
-
 collections:
+  - name: fedora
   - name: community.general
   - name: ansible.posix
