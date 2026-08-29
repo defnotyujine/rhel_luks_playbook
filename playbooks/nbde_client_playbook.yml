@@ -47,10 +47,11 @@
       ansible.builtin.include_role:
         name: fedora.linux_system_roles.nbde_client
       vars:
-        nbde_client_bindings: "{{ [item] }}"
+        nbde_client_bindings: "{{ [role_item] }}"
       loop: "{{ luks_bindings }}"
       loop_control:
-        label: "{{ item.device }}"
+        loop_var: role_item
+        label: "{{ role_item.device }}"
 
     - name: Read back the Clevis bindings
       ansible.builtin.command:
