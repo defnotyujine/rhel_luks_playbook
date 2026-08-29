@@ -1,0 +1,7 @@
+---
+
+tang_port: 7500
+
+# URL this Tang server advertises on. NBDE clients read this out of hostvars
+# to build their binding list, so keep it in sync with tang_port.
+nbde_tang_url: "http://{{ ansible_host | default(inventory_hostname) }}:{{ tang_port }}"
