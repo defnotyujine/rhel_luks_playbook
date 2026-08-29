@@ -1,6 +1,6 @@
 ---
 
-nbde_client_bindigns:
+luks_bindings:
   - device: /dev/mapper/rhel-root
     encryption_password: "<device_password>"
     servers: "{{ tang_urls }}"

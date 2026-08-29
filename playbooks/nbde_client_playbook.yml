@@ -24,16 +24,16 @@
 
     - name: Ensure devices are defined for this host
       ansible.builtin.assert:
-        that: nbde_client_bindings | default([]) | length > 0
+        that: luks_bindings | default([]) | length > 0
         fail_msg: >-
-          nbde_devices is not set for {{ inventory_hostname }}.
+          luks_bindings is not set for {{ inventory_hostname }}.
           Define it in host_vars, e.g., ['/dev/mapper/rhel-root'].
       tags: always
 
     - name: Confirm each device is a LUKS container
       ansible.builtin.command:
         cmd: cryptsetup isLuks {{ item }}
-      loop: "{{ nbde_client_bindings | map(attribute='device') | list }}"
+      loop: "{{ luks_bindings | map(attribute='device') | list }}"
       changed_when: false
 
     - name: Confirm each Tang server is reachable from this node
@@ -46,11 +46,16 @@
     - name: Bind devices via the NBDE Client system role
       ansible.builtin.include_role:
         name: fedora.linux_system_roles.nbde_client
+      vars:
+        nbde_client_bindings: "{{ [item] }}"
+      loop: "{{ luks_bindings }}"
+      loop_control:
+        label: "{{ item.device }}"
 
     - name: Read back the Clevis bindings
       ansible.builtin.command:
         cmd: clevis luks list -d {{ item }}
-      loop: "{{ nbde_client_bindings | map(attribute='device') | list }}"
+      loop: "{{ luks_bindings | map(attribute='device') | list }}"
       register: clevis_state
       changed_when: false
 
@@ -62,7 +67,7 @@
         label: "{{ item.item }}"
 
   post_tasks:
-    - name: Reboot required required to verify unattended boot
+    - name: Reboot required to verify unattended boot
       ansible.builtin.debug:
         msg: >-
           Keep console access available. If binding failed the host
