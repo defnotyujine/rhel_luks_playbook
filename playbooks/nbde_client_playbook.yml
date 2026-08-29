@@ -24,16 +24,16 @@
 
     - name: Ensure devices are defined for this host
       ansible.builtin.assert:
-        that: nbde_devices | deafult([]) | lenght > 0
+        that: nbde_client_bindings | default([]) | length > 0
         fail_msg: >-
           nbde_devices is not set for {{ inventory_hostname }}.
-          Define it in host_vaars, e.g., ['/dev/mapper/rhel-root'].
+          Define it in host_vars, e.g., ['/dev/mapper/rhel-root'].
       tags: always
 
     - name: Confirm each device is a LUKS container
       ansible.builtin.command:
-        cmd: cryptsetup is LUks {{ item }}
-      loop: "{{ nbde_devices }}"
+        cmd: cryptsetup isLuks {{ item }}
+      loop: "{{ nbde_client_bindings | map(attribute='device') | list }}"
       changed_when: false
 
     - name: Confirm each Tang server is reachable from this node
