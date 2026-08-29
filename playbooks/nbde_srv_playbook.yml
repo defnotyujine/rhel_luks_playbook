@@ -25,7 +25,7 @@
   tasks:
     - name: Deploy Tang via the RHEL NBDE Server system role
       ansible.builtin.include_role:
-        name: redhat.rhel_system_roles.nbde_server
+        name: linux-system-roles.nbde_server
       vars:
         nbde_server_provider: tang
         nbde_server_port: "{{ tang_port }}"
