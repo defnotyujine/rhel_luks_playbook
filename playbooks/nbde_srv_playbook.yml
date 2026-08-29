@@ -1,0 +1,58 @@
+---
+
+- name: Deploy and configure Tang servers
+  hosts: nbde_servers
+  become: true
+
+  pre_tasks:
+    - name: Check ansible version is greater than 2.16.1
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported ansible-core version: {{ ansible_version.full }}.
+          This playbook requires ansible-core 2.16.1 or higher.
+      when: not (ansible_version.full is version('2.16.1', '>='))
+      tags: always
+
+    - name: Ensure the system is supported
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported OS: {{ ansible_distribution }}
+          {{ ansible_distribution_major_version }}.
+          This playbook supports RedHat family distributions only.
+      when: ansible_os_family != "RedHat"
+      tags: always
+
+  tasks:
+    - name: Deploy Tang via the RHEL NBDE Server system role
+      ansible.builtin.include_role:
+        name: redhat.rhel_system_roles.nbde_server
+      vars:
+        nbde_server_provider: tang
+        nbde_server_port: "{{ tang_port }}"
+        nbde_server_manage_firewall: true
+        nbde_server_manage_selinux: true
+
+    - name: Verify Tang responds with an advertisement
+      ansible.builtin.uri:
+        url: "http://{{ ansible_default_ipv4.address }}:{{ tang_port }}/adv"
+        return_content: true
+      register: tang_adv
+      retries: 3
+      delay: 2
+      until: tang_adv.status == 200
+
+    - name: Show the Tang key thumbprints
+      ansible.builtin.command:
+        cmd: tang-show-keys {{ tang_port }}
+      register: tang_thumbprints
+      changed_when: false
+
+    - name: Report thumbprints
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} advertises: {{ tang_thumbprints.stdout_lines }}"
+
+  post_tasks:
+    - name: End of Ansible Deployment
+      ansible.builtin.debug:
+        msg: "Ansible Deployment Finished"
+      tags: always
