@@ -1,0 +1,5 @@
+---
+
+tang_urls:
+  - http://<ip_address>:7500
+  - http://<ip_address>:7500

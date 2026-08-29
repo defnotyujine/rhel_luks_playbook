@@ -1,6 +1,15 @@
-tang_servers:
+---
+
+nbde_servers:
   hosts:
-    tang_server1:
-      ansible_host: 192.168.126.136
-    # tang_server2:
-    #   ansible_host2:
+    # tang1:
+    #   ansible_host: <ip_address>
+    # tang2:
+    #   ansible_host: <ip_address>
+
+nbde_clients:
+  hosts:
+    # node1:
+      # ansible_host: <ip_address>
+    # node2:
+      # ansible_host <ip_address>

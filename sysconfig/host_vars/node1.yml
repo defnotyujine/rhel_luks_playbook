@@ -1,0 +1,16 @@
+---
+
+nbde_client_bindigns:
+  - device: /dev/mapper/rhel-root
+    encryption_password: "<device_password>"
+    servers: "{{ tang_urls }}"
+    state: present
+    threshold: 1
+    password_temporary: false
+
+  - device: /dev/mapper/rhel-swap
+    encryption_password: "<device_password>"
+    servers: "{{ tang_urls }}"
+    state: present
+    threshold: 1
+    password_temporary: false
