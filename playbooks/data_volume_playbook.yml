@@ -1,0 +1,64 @@
+---
+
+- name: Create encrypted data volumes
+  hosts: nbde_clients
+  become: true
+
+  pre_tasks:
+    - name: Check ansible version is greater than 2.16.1
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported ansible-core version: {{ ansible_version.full }}.
+          This playbook requires ansible-core 2.16.1 or higher.
+      when: not (ansible_version.full is version('2.16.1', '>='))
+      tags: always
+
+    - name: Ensure the system is supported
+      ansible.builtin.fail:
+        msg: >-
+          Unsupported OS: {{ ansible_distribution }}
+          {{ ansible_distribution_major_version }}.
+          This playbook supports RedHat family distributions only.
+      when: ansible_os_family != "RedHat"
+      tags: always
+
+    - name: Ensure data volumes are defined for this host
+      ansible.builtin.assert:
+        that: data_volumes | default([]) | length > 0
+        fail_msg:
+          data volumes is not set for {{ inventory_hostname }}.
+          Define it in host_vars.
+      tags: always
+
+  tasks:
+    - name: Create the encrypted volume(s)
+      ansible.builtin.include_role:
+        name: fedora.linux_system_roles.storage
+      vars:
+        storage_volumes: "{{ data_volumes }}"
+
+    - name: Enable remote-cryptsetup.target
+      ansible.builtin.systemd:
+        name: remote-cryptsetup.target
+        enabled: true
+
+    - name: Report created volumes
+      ansible.builtin.debug:
+        msg: "{{ item.name }} -> {{ item.mount_point }}"
+      loop: "{{ data_volumes }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+  post_tasks:
+    - name: Next step
+      ansible.builtin.debug:
+        msg: >-
+          Volume created but not yet bound to Tang.
+          Run the nbde_client_playbook against this host
+          to enroll it and bind to specified tang servers.
+      tags: always
+
+    - name: End of Ansible Deployment
+      ansible.builtin.debug:
+        msg: "Ansible Deployment Finished"
+      tags: always
