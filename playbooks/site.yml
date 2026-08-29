@@ -1,0 +1,13 @@
+---
+
+- name: Deploy aand configure Tang servers
+  ansible.builtin.import_playbook: nbde_server_playbook.yml
+  tags: [tang]
+
+- name: Create encrypted data volumes for guest disks
+  ansible.builtin.import_playbook: data_volume_playbook.yml
+  tags: [volumes]
+
+- name: Enrol encrypted data volumes to Tang servers
+  ansible.builtin.import_playbook: nbde_client_playbook.yml
+  tags: [data]
